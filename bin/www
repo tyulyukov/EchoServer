@@ -1,13 +1,22 @@
-#!/usr/bin/env node
-
 let app = require('../app');
 let debug = require('debug')('echoserver:server');
 let http = require('http');
+require("dotenv").config();
 
 let port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 
 let server = http.createServer(app);
+let { Server } = require("socket.io");
+let io = new Server(server);
+
+io.on('connection', function(socket) {
+  debug('A user connected');
+
+  socket.on('disconnect', function () {
+    debug('A user disconnected');
+  });
+});
 
 server.listen(port);
 server.on('error', onError);
@@ -55,7 +64,9 @@ function onListening() {
   let bind = typeof addr === 'string'
     ? 'pipe ' + addr
     : 'port ' + addr.port;
+
   debug('Listening on ' + bind);
 
-  console.log('Server started at: http://localhost:' + addr.port + '/')
+  if (addr.port)
+    debug('Server started at: http://localhost:' + addr.port + '/')
 }
