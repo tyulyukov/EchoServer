@@ -36,12 +36,12 @@ exports.login = async function (req, res){
         let signature = crypto.createHmac('SHA256', tokenKey).update(`${head}.${body}`).digest('base64')
 
         return res.status(200).json({
-            User: {
-                Username: user.username,
-                AvatarUrl: user.avatarUrl,
-                CreatedAt: user.createdAt
+            user: {
+                username: user.username,
+                avatarUrl: user.avatarUrl,
+                createdAt: user.createdAt
             },
-            Token: `${head}.${body}.${signature}`,
+            token: `${head}.${body}.${signature}`,
         })
     })
 }
@@ -55,14 +55,11 @@ exports.register = async function (req, res){
     }
 
     User.findOne( {username: username}, function (err, user) {
-        if (err) {
-            console.error(err)
+        if (err)
             return res.status(500).json({message: 'Internal Error'})
-        }
 
-        if (user) {
+        if (user)
             return res.status(405).json({ message: 'This username is already busy' });
-        }
 
         const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,20}$/;
         if(password.match(passwordRegex) == null)
@@ -79,9 +76,9 @@ exports.register = async function (req, res){
                 return res.status(500).json({ message: 'Internal Error' })
 
             return res.status(201).json({
-                Username: newUser.username,
-                AvatarUrl: newUser.avatarUrl,
-                CreatedAt: newUser.createdAt
+                username: newUser.username,
+                avatarUrl: newUser.avatarUrl,
+                createdAt: newUser.createdAt
             });
         })
     })
