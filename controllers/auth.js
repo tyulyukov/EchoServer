@@ -18,7 +18,7 @@ exports.middlewareAuth = function (req, res, next) {
     return next()
 }
 
-exports.login = async function (req, res){
+exports.login = async function (req, res) {
     const username = req.body.username
     const passwordHash = crypto.createHash('sha256').update(req.body.password).digest('hex');
 
@@ -39,14 +39,15 @@ exports.login = async function (req, res){
             user: {
                 username: user.username,
                 avatarUrl: user.avatarUrl,
-                createdAt: user.createdAt
+                createdAt: user.createdAt,
+                description: user.description
             },
             token: `${head}.${body}.${signature}`,
         })
     })
 }
 
-exports.register = async function (req, res){
+exports.register = async function (req, res) {
     const username = req.body.username
     const password = req.body.password
 
@@ -61,10 +62,6 @@ exports.register = async function (req, res){
         if (user)
             return res.status(405).json({ message: 'This username is already busy' });
 
-        const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,20}$/;
-        if(password.match(passwordRegex) == null)
-            return res.status(400).json({ message: 'Password is incorrect' });
-
         const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
 
         const newUser = new User()
@@ -78,9 +75,29 @@ exports.register = async function (req, res){
             return res.status(201).json({
                 username: newUser.username,
                 avatarUrl: newUser.avatarUrl,
-                createdAt: newUser.createdAt
+                createdAt: newUser.createdAt,
             });
         })
+    })
+}
+
+exports.confirmJwt = function (req, res) {
+    if (!req.user)
+        return res.status(401)
+
+    User.findOne( {_id: req.user._id}, function (err, user) {
+        if (err)
+            return res.status(500)
+
+        if (user)
+            return res.status(200).json({
+                username: user.username,
+                avatarUrl: user.avatarUrl,
+                createdAt: user.createdAt,
+                description: user.description
+            });
+
+        return res.status(401)
     })
 }
 

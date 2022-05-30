@@ -25,6 +25,10 @@ const message = new Schema({
     sentAt: {
         type: Date,
         default: Date.now,
+    },
+    repliedOn: {
+        type: Schema.Types.ObjectId,
+        ref: 'Message'
     }
 });
 
