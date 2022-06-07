@@ -12,7 +12,7 @@ exports.middlewareAuth = function (req, res, next) {
             .digest('base64')
 
         if (signature === tokenParts[2])
-            req.user = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf8'))
+            req.userId = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf8'))
     }
 
     return next()
@@ -23,16 +23,14 @@ exports.login = async function (req, res) {
     const passwordHash = crypto.createHash('sha256').update(req.body.password).digest('hex');
 
     User.findOne( {username: username, passwordHash: passwordHash}, function (err, user) {
-        if (err) {
-            console.error(err)
+        if (err)
             return res.status(500).json({ message: 'Internal Error' })
-        }
 
         if (!user)
             return res.status(400).json({ message: 'User Not Found' })
 
         let head = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'jwt' })).toString('base64')
-        let body = Buffer.from(JSON.stringify(user)).toString('base64')
+        let body = Buffer.from(JSON.stringify(user._id)).toString('base64')
         let signature = crypto.createHmac('SHA256', tokenKey).update(`${head}.${body}`).digest('base64')
 
         return res.status(200).json({
@@ -82,12 +80,12 @@ exports.register = async function (req, res) {
 }
 
 exports.confirmJwt = function (req, res) {
-    if (!req.user)
-        return res.status(401)
+    if (!req.userId)
+        return res.status(401).json({ message: "Not authorized" })
 
-    User.findOne( {_id: req.user._id}, function (err, user) {
+    User.findOne( {_id: req.userId}, function (err, user) {
         if (err)
-            return res.status(500)
+            return res.status(500).json({ message: "Internal Error" })
 
         if (user)
             return res.status(200).json({
@@ -97,7 +95,7 @@ exports.confirmJwt = function (req, res) {
                 description: user.description
             });
 
-        return res.status(401)
+        return res.status(401).json({ message: "User not registered" })
     })
 }
 

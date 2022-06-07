@@ -11,6 +11,8 @@ require("dotenv").config();
 let indexRouter = require('./routes/index');
 let mediaConverterRouter = require('./routes/media-converter');
 let usersRouter = require('./routes/users');
+let chatsRouter = require('./routes/chats');
+let profileRouter = require('./routes/profile');
 
 let app = express();
 
@@ -35,7 +37,10 @@ app.use(authController.middlewareAuth)
 
 app.use('/', indexRouter);
 app.use('/media', mediaConverterRouter);
-app.use('/users', usersRouter)
+app.use('/users', usersRouter);
+app.use('/chats', chatsRouter);
+app.use('/profile', profileRouter);
+
 app.post('/auth/login', authController.login);
 app.post('/auth/register', authController.register);
 app.get('/auth/jwt', authController.confirmJwt);

@@ -14,7 +14,7 @@ const message = new Schema({
             default: Date.now,
         }
     }],
-    isSeen: {
+    haveSeen: {
         type: Boolean,
         default: false
     },

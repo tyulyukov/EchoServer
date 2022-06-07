@@ -9,7 +9,15 @@ const user = new Schema({
         type: String,
         default: 'storage/avatars/default-avatar.webp',
     },
+    originalAvatarUrl: {
+        type: String,
+        default: 'storage/avatars/default-avatar.webp',
+    },
     createdAt: {
+        type: Date,
+        default: Date.now,
+    },
+    passwordChangedAt: {
         type: Date,
         default: Date.now,
     }
