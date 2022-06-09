@@ -2,19 +2,52 @@ let app = require('../app');
 let debug = require('debug')('echoserver:server');
 let http = require('http');
 require("dotenv").config();
+const tokenKey = process.env.TOKEN_KEY
 
 let port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 
 let server = http.createServer(app);
 let { Server } = require("socket.io");
-let io = new Server(server);
+const crypto = require("crypto");
+let io = new Server(server, {
+  cors: {
+    origin: "*",
+  }
+});
+
+io.use((socket, next) => {
+  const authorization = socket.handshake.query.authorization;
+
+  if (!authorization)
+    return next(new Error("Invalid jwt"));
+
+  let tokenParts = authorization.split('.')
+  let signature = crypto
+      .createHmac('SHA256', tokenKey)
+      .update(`${tokenParts[0]}.${tokenParts[1]}`)
+      .digest('base64')
+
+  if (signature === tokenParts[2])
+    socket.userId = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf8'))
+
+  next();
+});
 
 io.on('connection', function(socket) {
-  debug('A user connected');
+  const users = [];
+  for (let [id, socket] of io.of("/").sockets) {
+    users.push({
+      socketId: id,
+      userId: socket.userId,
+    });
+  }
+
+  console.log('CONNECT ' + socket.userId);
+  // console.log('users: ', users);
 
   socket.on('disconnect', function () {
-    debug('A user disconnected');
+    console.log('DISCONNECT ' + socket.userId);
   });
 });
 

@@ -29,6 +29,10 @@ const message = new Schema({
     repliedOn: {
         type: Schema.Types.ObjectId,
         ref: 'Message'
+    },
+    chat: {
+        type: Schema.Types.ObjectId,
+        ref: 'Chat'
     }
 });
 
