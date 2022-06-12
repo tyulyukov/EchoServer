@@ -1,4 +1,5 @@
 const Chat = require('../database/models/chat')
+const root = require('../bin/www.js')
 
 exports.getUserChats = function (req, res) {
     if (!req.userId)
@@ -61,15 +62,19 @@ exports.createChat = function (req, res) {
                         if (err)
                             return res.status(500).json({ message: "Internal Error" })
 
-                        Chat.populate(newChat, { path: "sender" }, function(err, halfPopulatedChat) {
+                        Chat.populate(newChat, { path: "sender" }, function(err, senderPopulatedChat) {
                             if (err)
                                 return res.status(500).json({ message: "Internal Error" })
 
-                            Chat.populate(halfPopulatedChat, { path: "receiver" }, function(err, populatedChat) {
+                            Chat.populate(senderPopulatedChat, { path: "receiver" }, function(err, receiverPopulatedChat) {
                                 if (err)
                                     return res.status(500).json({ message: "Internal Error" })
 
-                                return res.status(201).json(populatedChat);
+                                for (const onlineUser of root.getOnlineUsers())
+                                    if (onlineUser.userId == receiverId)
+                                        onlineUser.socket.emit('chat created', receiverPopulatedChat)
+
+                                return res.status(201).json(receiverPopulatedChat);
                             });
                         });
                     })

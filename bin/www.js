@@ -20,14 +20,14 @@ let io = new Server(server, {
 
 mongoose.connect(process.env.DB_CONNECTION_STRING, { useNewUrlParser: true, useUnifiedTopology: true }, function (err) { if (err) console.error(err) } )
 
-const User = require('../database/models/user')
+const Message = require('../database/models/message');
 const Chat = require("../database/models/chat");
 
 io.use((socket, next) => {
   const authorization = socket.handshake.query.authorization.replace(' ', '+');
 
   if (!authorization)
-    return next(new Error("User id undefined"));
+    return next(new Error("401"));
 
   let tokenParts = authorization.split('.')
   let signature = crypto
@@ -42,6 +42,9 @@ io.use((socket, next) => {
 });
 
 let onlineUsers = [];
+exports.getOnlineUsers = function () {
+  return onlineUsers;
+}
 io.on('connection', function(socket) {
   console.log('CONNECT', socket.userId, 'SOCKET', socket.id)
 
@@ -60,8 +63,43 @@ io.on('connection', function(socket) {
       onlineUsersId.push(user.userId)
     }
 
-  console.log('Other users online: ', onlineUsersId)
   socket.emit('users online', onlineUsersId);
+
+  socket.on('send message', function(messageId, chatId, content) {
+    let message = new Message()
+    message._id = messageId
+    message.chat = chatId
+    message.sender = socket.userId
+    message.content = content
+
+    message.save(function(err) {
+      if (err)
+        return socket.emit('send message failed', message)
+
+      Message.populate(message, { path: "sender" }, function(err, senderPopulatedMessage) {
+        if (err)
+          return socket.emit('send message failed', senderPopulatedMessage)
+
+        Message.populate(senderPopulatedMessage, { path: "chat" }, function (err, chatPopulatedMessage) {
+          if (err)
+            return socket.emit('send message failed', chatPopulatedMessage)
+
+          let targetUserId
+
+          if (chatPopulatedMessage.chat.sender._id !== socket.userId)
+            targetUserId = chatPopulatedMessage.chat.sender._id
+          else
+            targetUserId = chatPopulatedMessage.chat.receiver._id
+
+          for (const onlineUser of onlineUsers)
+            if (onlineUser.userId == socket.userId)
+              onlineUser.socket.emit('message sent', chatPopulatedMessage)
+            else if (onlineUser.userId == targetUserId)
+              onlineUser.socket.emit('message sent', chatPopulatedMessage)
+        })
+      })
+    })
+  })
 
   socket.on('disconnect', function () {
     console.log('DISCONNECT', + socket.userId, 'SOCKET', socket.id)
