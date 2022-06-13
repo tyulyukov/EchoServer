@@ -35,10 +35,12 @@ exports.login = async function (req, res) {
 
         return res.status(200).json({
             user: {
+                _id: user._id,
                 username: user.username,
                 avatarUrl: user.avatarUrl,
+                originalAvatarUrl: user.originalAvatarUrl,
                 createdAt: user.createdAt,
-                description: user.description
+                description: user.description,
             },
             token: `${head}.${body}.${signature}`,
         })
@@ -71,9 +73,12 @@ exports.register = async function (req, res) {
                 return res.status(500).json({ message: 'Internal Error' })
 
             return res.status(201).json({
+                _id: newUser._id,
                 username: newUser.username,
                 avatarUrl: newUser.avatarUrl,
+                originalAvatarUrl: newUser.originalAvatarUrl,
                 createdAt: newUser.createdAt,
+                description: newUser.description,
             });
         })
     })
@@ -89,10 +94,12 @@ exports.confirmJwt = function (req, res) {
 
         if (user)
             return res.status(200).json({
+                _id: user._id,
                 username: user.username,
                 avatarUrl: user.avatarUrl,
+                originalAvatarUrl: user.originalAvatarUrl,
                 createdAt: user.createdAt,
-                description: user.description
+                description: user.description,
             });
 
         return res.status(401).json({ message: "User not registered" })

@@ -1,3 +1,4 @@
+let root = require('../bin/www')
 let crypto = require('crypto')
 const User = require('../database/models/user')
 
@@ -11,9 +12,19 @@ exports.updateAvatar = function (req, res) {
     if (IsNullOrWhiteSpace(newAvatarUrl) || IsNullOrWhiteSpace(newOriginalAvatarUrl))
         return res.status(400).json({ message: 'Fields must be not empty' })
 
-    User.findOneAndUpdate({_id: req.userId}, {avatarUrl: newAvatarUrl, originalAvatarUrl: newOriginalAvatarUrl}, null, function(err) {
+    User.findOneAndUpdate({_id: req.userId}, {avatarUrl: newAvatarUrl, originalAvatarUrl: newOriginalAvatarUrl}, null, function(err, user) {
         if (err)
             return res.status(500).json({ message: 'Internal Error' })
+
+        for (const onlineUser of root.getOnlineUsers())
+            onlineUser.socket.emit('user updated', {
+                _id: req.userId,
+                username: user.username,
+                avatarUrl: newAvatarUrl,
+                description: user.description,
+                originalAvatarUrl: newOriginalAvatarUrl,
+                createdAt: user.createdAt
+            })
 
         return res.status(200).json({ message: 'Profile avatar updated successfully' })
     })
@@ -28,11 +39,29 @@ exports.updateUsername = function (req, res) {
     if (IsNullOrWhiteSpace(newUsername))
         return res.status(400).json({ message: 'Fields must be not empty' })
 
-    User.findOneAndUpdate({_id: req.userId}, {username: newUsername}, null, function(err) {
+    User.findOne({username: newUsername}, function (err, user) {
         if (err)
             return res.status(500).json({ message: 'Internal Error' })
 
-        return res.status(200).json({ message: 'Profile username updated successfully' })
+        if (user)
+            return res.status(405).json({ message: 'This username is already busy' });
+
+        User.findOneAndUpdate({_id: req.userId}, {username: newUsername}, null, function(err, user) {
+            if (err)
+                return res.status(500).json({ message: 'Internal Error' })
+
+            for (const onlineUser of root.getOnlineUsers())
+                onlineUser.socket.emit('user updated', {
+                    _id: req.userId,
+                    username: newUsername,
+                    avatarUrl: user.avatarUrl,
+                    description: user.description,
+                    originalAvatarUrl: user.originalAvatarUrl,
+                    createdAt: user.createdAt
+                })
+
+            return res.status(200).json({ message: 'Profile username updated successfully' })
+        })
     })
 }
 

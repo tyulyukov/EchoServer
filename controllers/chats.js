@@ -1,4 +1,5 @@
 const Chat = require('../database/models/chat')
+const Message = require('../database/models/message')
 const root = require('../bin/www.js')
 
 exports.getUserChats = function (req, res) {
@@ -80,4 +81,29 @@ exports.createChat = function (req, res) {
                     })
                 })
         })
+}
+
+exports.loadMessages = function (req, res) {
+    if (!req.userId)
+        return res.status(401).json({ message: "Not authorized" })
+
+    Message.find({chat: req.params.chatId})
+        .sort({'sentAt': -1})
+        .limit(req.query.count)
+        .skip(req.query.from)
+        .populate({
+            path : 'chat',
+            populate : {
+                path : 'sender receiver'
+            }
+        })
+        .populate('repliedOn')
+        .populate('attachments')
+        .populate('sender')
+        .exec( function (err, messages) {
+            if (err)
+                return res.status(500).json({ message: "Internal Error" });
+
+            return res.status(200).json(messages);
+    });
 }
