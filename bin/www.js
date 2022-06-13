@@ -74,35 +74,39 @@ io.on('connection', function(socket) {
 
     message.save(function(err) {
       if (err)
-        return socket.emit('send message failed', message)
+        return socket.emit('send message failed', messageId)
 
       Message.populate(message, { path: "sender" }, function(err, senderPopulatedMessage) {
         if (err)
-          return socket.emit('send message failed', senderPopulatedMessage)
+          return socket.emit('send message failed', messageId)
 
-        Message.populate(senderPopulatedMessage, { path: "chat" }, function (err, chatPopulatedMessage) {
+        Message.populate(senderPopulatedMessage, { path: "chat", populate: { path: "sender receiver" } }, function (err, chatPopulatedMessage) {
           if (err)
-            return socket.emit('send message failed', chatPopulatedMessage)
+            return socket.emit('send message failed', messageId)
 
           let targetUserId
 
-          if (chatPopulatedMessage.chat.sender._id !== socket.userId)
+          if (chatPopulatedMessage.chat.sender._id.toString() !== socket.userId.toString())
             targetUserId = chatPopulatedMessage.chat.sender._id
           else
             targetUserId = chatPopulatedMessage.chat.receiver._id
 
           for (const onlineUser of onlineUsers)
-            if (onlineUser.userId == socket.userId)
+            if (onlineUser.userId == socket.userId) {
+              console.log('MESSAGE SEND SUCCESS', onlineUser.userId)
               onlineUser.socket.emit('message sent', chatPopulatedMessage)
-            else if (onlineUser.userId == targetUserId)
+            }
+            else if (onlineUser.userId == targetUserId) {
+              console.log('MESSAGE SENT TO', onlineUser.userId)
               onlineUser.socket.emit('message sent', chatPopulatedMessage)
+            }
         })
       })
     })
   })
 
   socket.on('disconnect', function () {
-    console.log('DISCONNECT', + socket.userId, 'SOCKET', socket.id)
+    console.log('DISCONNECT', socket.userId, 'SOCKET', socket.id)
 
     for(let i = 0; i < onlineUsers.length; i++)
       if (onlineUsers[i].socket.id === socket.id)
