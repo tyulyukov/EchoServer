@@ -65,7 +65,7 @@ io.on('connection', function(socket) {
 
   socket.emit('users online', onlineUsersId);
 
-  socket.on('send message', function(messageId, chatId, content) {
+  socket.on('send message', function (messageId, chatId, content) {
     let message = new Message()
     message._id = messageId
     message.chat = chatId
@@ -103,6 +103,13 @@ io.on('connection', function(socket) {
         })
       })
     })
+  })
+
+  socket.on('user typing', function (targetUserId) {
+    for (const onlineUser of onlineUsers)
+      if (onlineUser.userId == targetUserId) {
+        onlineUser.socket.emit('user typing', socket.userId)
+      }
   })
 
   socket.on('disconnect', function () {
