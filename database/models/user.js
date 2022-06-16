@@ -20,6 +20,10 @@ const user = new Schema({
     passwordChangedAt: {
         type: Date,
         default: Date.now,
+    },
+    lastOnlineAt: {
+        type: Date,
+        default: Date.now,
     }
 });
 

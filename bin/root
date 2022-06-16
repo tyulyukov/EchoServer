@@ -1,7 +1,9 @@
 let app = require('../app');
-let debug = require('debug')('echoserver:server');
 let http = require('http');
 let mongoose = require("mongoose");
+let serverDebug = require('debug')('echo:server')
+let socketsDebug = require('debug')('echo:sockets')
+let databaseDebug = require('debug')('echo:database')
 
 require("dotenv").config();
 const tokenKey = process.env.TOKEN_KEY
@@ -22,6 +24,7 @@ mongoose.connect(process.env.DB_CONNECTION_STRING, { useNewUrlParser: true, useU
 
 const Message = require('../database/models/message');
 const Chat = require("../database/models/chat");
+const User = require("../database/models/user");
 
 io.use((socket, next) => {
   const authorization = socket.handshake.query.authorization.replace(' ', '+');
@@ -46,7 +49,7 @@ exports.getOnlineUsers = function () {
   return onlineUsers;
 }
 io.on('connection', function(socket) {
-  console.log('CONNECT', socket.userId, 'SOCKET', socket.id)
+  socketsDebug('CONNECT', socket.userId, 'SOCKET', socket.id)
 
   onlineUsers = [];
   for (let [id, userSocket] of io.of("/").sockets) {
@@ -73,16 +76,23 @@ io.on('connection', function(socket) {
     message.content = content
 
     message.save(function(err) {
-      if (err)
+      if (err) {
+        databaseDebug(err)
         return socket.emit('send message failed', messageId)
+      }
 
       Message.populate(message, { path: "sender" }, function(err, senderPopulatedMessage) {
-        if (err)
+        if (err) {
+          databaseDebug(err)
           return socket.emit('send message failed', messageId)
+        }
+
 
         Message.populate(senderPopulatedMessage, { path: "chat", populate: { path: "sender receiver" } }, function (err, chatPopulatedMessage) {
-          if (err)
+          if (err) {
+            databaseDebug(err)
             return socket.emit('send message failed', messageId)
+          }
 
           let targetUserId
 
@@ -93,11 +103,11 @@ io.on('connection', function(socket) {
 
           for (const onlineUser of onlineUsers)
             if (onlineUser.userId == socket.userId) {
-              console.log('MESSAGE SEND SUCCESS', onlineUser.userId)
+              socketsDebug('MESSAGE SEND SUCCESS', onlineUser.userId)
               onlineUser.socket.emit('message sent', chatPopulatedMessage)
             }
             else if (onlineUser.userId == targetUserId) {
-              console.log('MESSAGE SENT TO', onlineUser.userId)
+              socketsDebug('MESSAGE SENT TO', onlineUser.userId)
               onlineUser.socket.emit('message sent', chatPopulatedMessage)
             }
         })
@@ -113,7 +123,7 @@ io.on('connection', function(socket) {
   })
 
   socket.on('disconnect', function () {
-    console.log('DISCONNECT', socket.userId, 'SOCKET', socket.id)
+    socketsDebug('DISCONNECT', socket.userId, 'SOCKET', socket.id)
 
     for(let i = 0; i < onlineUsers.length; i++)
       if (onlineUsers[i].socket.id === socket.id)
@@ -127,6 +137,11 @@ io.on('connection', function(socket) {
       if (user.socket.id !== socket.id) {
         user.socket.emit('user disconnected', socket.userId)
       }
+
+    User.findOneAndUpdate({_id: socket.userId}, {lastOnlineAt: Date.now()}, null, function (err) {
+      if (err)
+        databaseDebug(err)
+    })
   })
 });
 
@@ -159,11 +174,11 @@ function onError(error) {
 
   switch (error.code) {
     case 'EACCES':
-      console.error(bind + ' requires elevated privileges');
+      serverDebug(bind + ' requires elevated privileges');
       process.exit(1);
       break;
     case 'EADDRINUSE':
-      console.error(bind + ' is already in use');
+      serverDebug(bind + ' is already in use');
       process.exit(1);
       break;
     default:
@@ -177,8 +192,8 @@ function onListening() {
     ? 'pipe ' + addr
     : 'port ' + addr.port;
 
-  debug('Listening on ' + bind);
+  serverDebug('Listening on ' + bind);
 
   if (addr.port)
-    debug('Server started at: http://localhost:' + addr.port + '/')
+    serverDebug('Server started at: http://localhost:' + addr.port + '/')
 }

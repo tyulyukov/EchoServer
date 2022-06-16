@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node bin/www.js"
+    "start": "@powershell -Command $env:DEBUG='echo:*,'; node bin/root"
   },
   "dependencies": {
     "body-parser": "^1.20.0",
@@ -13,7 +13,6 @@
     "dotenv": "^16.0.1",
     "express": "~4.16.1",
     "mongoose": "^6.3.4",
-    "morgan": "~1.9.1",
     "multer": "^1.4.4",
     "socket.io": "^4.5.1",
     "webp-converter": "^2.3.3"

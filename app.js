@@ -1,10 +1,10 @@
 let express = require('express');
 let path = require('path');
 let cookieParser = require('cookie-parser');
-let logger = require('morgan');
 let cors = require('cors');
 let bodyParser = require('body-parser');
 let multer = require('multer');
+let httpDebug = require('debug')('echo:router');
 require("dotenv").config();
 
 let indexRouter = require('./routes/index');
@@ -15,8 +15,12 @@ let profileRouter = require('./routes/profile');
 
 let app = express();
 
+app.use((req, res, next)=> {
+    if (!req.url.startsWith('/storage/'))
+        httpDebug(req.method + ' ' + req.url + ' STATUS ' + res.statusCode)
+    next();
+})
 app.use(cors({origin: '*'}));
-app.use(logger('dev'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());

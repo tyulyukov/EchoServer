@@ -1,4 +1,4 @@
-let root = require('../bin/www')
+let root = require('../bin/root')
 let crypto = require('crypto')
 const User = require('../database/models/user')
 

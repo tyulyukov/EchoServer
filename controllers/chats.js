@@ -1,6 +1,6 @@
 const Chat = require('../database/models/chat')
 const Message = require('../database/models/message')
-const root = require('../bin/www.js')
+const root = require('../bin/root')
 
 exports.getUserChats = function (req, res) {
     if (!req.userId)
@@ -91,12 +91,7 @@ exports.loadMessages = function (req, res) {
         .sort({'sentAt': -1})
         .limit(req.query.count)
         .skip(req.query.from)
-        .populate({
-            path : 'chat',
-            populate : {
-                path : 'sender receiver'
-            }
-        })
+        .populate({ path : 'chat', populate : { path : 'sender receiver' } })
         .populate('repliedOn')
         .populate('attachments')
         .populate('sender')
