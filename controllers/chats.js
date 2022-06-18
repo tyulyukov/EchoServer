@@ -18,12 +18,47 @@ exports.getUserChats = function (req, res) {
             Chat.find({ receiver: userId }, 'sender receiver createdAt')
                 .populate('sender')
                 .populate('receiver')
-                .exec(function (err, receiverChats) {
-                if (err)
-                    return res.status(500).json({ message: "Internal Error" })
+                .exec(async function (err, receiverChats) {
+                    if (err)
+                        return res.status(500).json({message: "Internal Error"})
 
-                return res.status(200).json(senderChats.concat(receiverChats))
-            })
+                    let chats = senderChats.concat(receiverChats);
+
+                    for (let i = 0; i < chats.length; i++) {
+                        let targetUserId
+                        if (chats[i].sender._id.toString() !== userId.toString())
+                            targetUserId = chats[i].sender._id
+                        else
+                            targetUserId = chats[i].receiver._id
+
+                        let unreadMessagesCount = await Message.countDocuments({
+                            chat: chats[i]._id,
+                            haveSeen: false,
+                            sender: targetUserId
+                        });
+
+                        let loadedMessages = await Message.findOne({ chat: chats[i] })
+                            .sort({'sentAt': -1})
+                            .populate({ path : 'chat', populate : { path : 'sender receiver' } })
+                            .populate('repliedOn')
+                            .populate('attachments')
+                            .populate('sender')
+
+                        chats[i] = {
+                            _id: chats[i]._id,
+                            createdAt: chats[i].createdAt,
+                            sender: chats[i].sender,
+                            receiver: chats[i].receiver,
+                            unreadMessagesCount: unreadMessagesCount,
+                            messages: []
+                        }
+
+                        if (loadedMessages)
+                            chats[i].messages = [loadedMessages]
+                    }
+
+                    return res.status(200).json(chats)
+                })
         })
 }
 
@@ -100,5 +135,5 @@ exports.loadMessages = function (req, res) {
                 return res.status(500).json({ message: "Internal Error" });
 
             return res.status(200).json(messages);
-    });
+        });
 }

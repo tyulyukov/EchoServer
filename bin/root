@@ -122,6 +122,18 @@ io.on('connection', function(socket) {
       }
   })
 
+  socket.on('read message', function (messageId) {
+    Message.findOneAndUpdate({ _id: messageId }, { haveSeen: true }, { returnOriginal: false }, function (err, doc) {
+      if (err)
+        databaseDebug(err)
+
+      for (const onlineUser of onlineUsers)
+        if (onlineUser.userId === doc.sender.toString()) {
+          onlineUser.socket.emit('message read', socket.userId, messageId)
+        }
+    })
+  })
+
   socket.on('disconnect', function () {
     socketsDebug('DISCONNECT', socket.userId, 'SOCKET', socket.id)
 
@@ -169,8 +181,8 @@ function onError(error) {
   }
 
   let bind = typeof port === 'string'
-    ? 'Pipe ' + port
-    : 'Port ' + port;
+      ? 'Pipe ' + port
+      : 'Port ' + port;
 
   switch (error.code) {
     case 'EACCES':
@@ -189,8 +201,8 @@ function onError(error) {
 function onListening() {
   let addr = server.address();
   let bind = typeof addr === 'string'
-    ? 'pipe ' + addr
-    : 'port ' + addr.port;
+      ? 'pipe ' + addr
+      : 'port ' + addr.port;
 
   serverDebug('Listening on ' + bind);
 
