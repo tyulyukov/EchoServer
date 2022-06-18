@@ -87,7 +87,6 @@ io.on('connection', function(socket) {
           return socket.emit('send message failed', messageId)
         }
 
-
         Message.populate(senderPopulatedMessage, { path: "chat", populate: { path: "sender receiver" } }, function (err, chatPopulatedMessage) {
           if (err) {
             databaseDebug(err)
@@ -130,6 +129,18 @@ io.on('connection', function(socket) {
       for (const onlineUser of onlineUsers)
         if (onlineUser.userId === doc.sender.toString()) {
           onlineUser.socket.emit('message read', socket.userId, messageId)
+        }
+    })
+  })
+
+  socket.on('delete message', function (messageId) {
+    Message.findOneAndDelete({ _id: messageId }, { returnOriginal: false }, function (err, doc) {
+      if (err)
+        databaseDebug(err)
+
+      for (const onlineUser of onlineUsers)
+        if (onlineUser.userId !== doc.sender.toString()) {
+          onlineUser.socket.emit('message deleted', socket.userId, messageId)
         }
     })
   })
