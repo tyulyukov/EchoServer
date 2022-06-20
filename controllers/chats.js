@@ -37,12 +37,8 @@ exports.getUserChats = function (req, res) {
                             sender: targetUserId
                         });
 
-                        let loadedMessages = await Message.findOne({ chat: chats[i] })
+                        let loadedMessages = await Message.findOne({ chat: chats[i] }, 'sentAt')
                             .sort({'sentAt': -1})
-                            .populate({ path : 'chat', populate : { path : 'sender receiver' } })
-                            .populate('repliedOn')
-                            .populate('attachments')
-                            .populate('sender')
 
                         chats[i] = {
                             _id: chats[i]._id,
@@ -122,13 +118,17 @@ exports.loadMessages = function (req, res) {
     if (!req.userId)
         return res.status(401).json({ message: "Not authorized" })
 
-    Message.find({chat: req.params.chatId})
+    Message.find({chat: req.params.chatId}, '_id content repliedOn sender sentAt edits haveSeen')
         .sort({'sentAt': -1})
         .limit(req.query.count)
         .skip(req.query.from)
-        .populate({ path : 'chat', populate : { path : 'sender receiver' } })
-        .populate('repliedOn')
-        .populate('attachments')
+        .populate({
+            path : 'repliedOn',
+            select : '_id content sender sentAt haveSeen',
+            populate : {
+                path : 'sender',
+            }
+        })
         .populate('sender')
         .exec( function (err, messages) {
             if (err)

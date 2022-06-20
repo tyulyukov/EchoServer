@@ -19,16 +19,16 @@ const message = new Schema({
         type: Boolean,
         default: false
     },
-    attachments: {
+    /*attachments: [{
         type: Schema.Types.ObjectId,
         ref: 'Attachment'
-    },
+    }],*/
     sentAt: {
         type: Date,
         default: Date.now,
     },
     repliedOn: {
-        type: Schema.Types.ObjectId,
+        type: String,
         ref: 'Message'
     },
     chat: {

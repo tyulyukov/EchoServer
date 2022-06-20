@@ -68,49 +68,51 @@ io.on('connection', function(socket) {
 
   socket.emit('users online', onlineUsersId);
 
-  socket.on('send message', function (messageId, chatId, content) {
+  socket.on('send message', function (messageId, chatId, content, repliedOn) {
     let message = new Message()
     message._id = messageId
     message.chat = chatId
     message.sender = socket.userId
     message.content = content
+    if (repliedOn)
+      message.repliedOn = repliedOn
 
-    message.save(function(err) {
+    message.save(async function (err) {
       if (err) {
         databaseDebug(err)
         return socket.emit('send message failed', messageId)
       }
 
-      Message.populate(message, { path: "sender" }, function(err, senderPopulatedMessage) {
-        if (err) {
-          databaseDebug(err)
-          return socket.emit('send message failed', messageId)
-        }
-
-        Message.populate(senderPopulatedMessage, { path: "chat", populate: { path: "sender receiver" } }, function (err, chatPopulatedMessage) {
-          if (err) {
-            databaseDebug(err)
-            return socket.emit('send message failed', messageId)
+      if (repliedOn)
+        message = await Message.populate(message, {
+          path : 'repliedOn',
+          select : '_id content sender sentAt haveSeen',
+          populate : {
+            path : 'sender',
           }
-
-          let targetUserId
-
-          if (chatPopulatedMessage.chat.sender._id.toString() !== socket.userId.toString())
-            targetUserId = chatPopulatedMessage.chat.sender._id
-          else
-            targetUserId = chatPopulatedMessage.chat.receiver._id
-
-          for (const onlineUser of onlineUsers)
-            if (onlineUser.userId == socket.userId) {
-              socketsDebug('MESSAGE SEND SUCCESS', onlineUser.userId)
-              onlineUser.socket.emit('message sent', chatPopulatedMessage)
-            }
-            else if (onlineUser.userId == targetUserId) {
-              socketsDebug('MESSAGE SENT TO', onlineUser.userId)
-              onlineUser.socket.emit('message sent', chatPopulatedMessage)
-            }
         })
+
+      message = await Message.populate(message, { path: "sender" })
+      message = await Message.populate(message, {
+        path: "chat",
+        populate: { path: "sender receiver" }
       })
+
+      let targetUserId
+
+      if (message.chat.sender._id.toString() !== socket.userId.toString())
+        targetUserId = message.chat.sender._id
+      else
+        targetUserId = message.chat.receiver._id
+
+      for (const onlineUser of onlineUsers)
+        if (onlineUser.userId == socket.userId) {
+          socketsDebug('MESSAGE SEND SUCCESS', onlineUser.userId)
+          onlineUser.socket.emit('message sent', message)
+        } else if (onlineUser.userId == targetUserId) {
+          socketsDebug('MESSAGE SENT TO', onlineUser.userId)
+          onlineUser.socket.emit('message sent', message)
+        }
     })
   })
 
@@ -134,14 +136,19 @@ io.on('connection', function(socket) {
   })
 
   socket.on('delete message', function (messageId) {
-    Message.findOneAndDelete({ _id: messageId }, { returnOriginal: false }, function (err, doc) {
+    Message.updateMany({ repliedOn: messageId }, { repliedOn: null }, function (err) {
       if (err)
         databaseDebug(err)
 
-      for (const onlineUser of onlineUsers)
-        if (onlineUser.userId !== doc.sender.toString()) {
-          onlineUser.socket.emit('message deleted', socket.userId, messageId)
-        }
+      Message.findOneAndDelete({ _id: messageId }, { returnOriginal: false }, function (err, doc) {
+        if (err)
+          databaseDebug(err)
+
+        for (const onlineUser of onlineUsers)
+          if (onlineUser.userId !== doc.sender.toString()) {
+            onlineUser.socket.emit('message deleted', socket.userId, messageId)
+          }
+      })
     })
   })
 
