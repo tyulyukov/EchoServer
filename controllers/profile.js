@@ -34,10 +34,10 @@ exports.updateUsername = function (req, res) {
     if (!req.userId)
         return res.status(401).json({ message: "Not authorized" })
 
-    const newUsername = req.body.username
-
-    if (IsNullOrWhiteSpace(newUsername))
+    if (IsNullOrWhiteSpace(req.body.username))
         return res.status(400).json({ message: 'Fields must be not empty' })
+
+    const newUsername = req.body.username.toLowerCase()
 
     User.findOne({username: newUsername}, function (err, user) {
         if (err)

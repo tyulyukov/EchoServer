@@ -7,7 +7,7 @@ exports.searchUsers = function (req, res) {
     const query = req.body.query
     const userId = req.userId
 
-    User.find({ username: { $regex: query }, _id: { $ne: userId } }, 'username originalAvatarUrl avatarUrl description createdAt', function (err, users) {
+    User.find({ username: { $regex: query, $options: 'i' }, _id: { $ne: userId } }, 'username originalAvatarUrl avatarUrl description createdAt', function (err, users) {
         if (err)
             return res.status(500).json({ message: "Internal Error" })
 

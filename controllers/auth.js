@@ -19,7 +19,7 @@ exports.middlewareAuth = function (req, res, next) {
 }
 
 exports.login = async function (req, res) {
-    const username = req.body.username
+    const username = req.body.username.toLowerCase()
     const passwordHash = crypto.createHash('sha256').update(req.body.password).digest('hex');
 
     User.findOne( {username: username, passwordHash: passwordHash}, function (err, user) {
@@ -48,7 +48,7 @@ exports.login = async function (req, res) {
 }
 
 exports.register = async function (req, res) {
-    const username = req.body.username
+    const username = req.body.username.toLowerCase()
     const password = req.body.password
 
     if (IsNullOrWhiteSpace(password) || IsNullOrWhiteSpace(username)) {
