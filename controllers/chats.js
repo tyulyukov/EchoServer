@@ -37,8 +37,10 @@ exports.getUserChats = function (req, res) {
                             sender: targetUserId
                         });
 
-                        let loadedMessages = await Message.findOne({ chat: chats[i] }, 'sentAt')
+                        let loadedMessages = await Message.find({ chat: chats[i] }, '_id sentAt content sender haveSeen edits')
                             .sort({'sentAt': -1})
+                            .limit(1)
+                            .populate('sender')
 
                         chats[i] = {
                             _id: chats[i]._id,
@@ -46,11 +48,8 @@ exports.getUserChats = function (req, res) {
                             sender: chats[i].sender,
                             receiver: chats[i].receiver,
                             unreadMessagesCount: unreadMessagesCount,
-                            messages: []
+                            messages: loadedMessages
                         }
-
-                        if (loadedMessages)
-                            chats[i].messages = [loadedMessages]
                     }
 
                     return res.status(200).json(chats)

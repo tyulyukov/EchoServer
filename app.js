@@ -17,7 +17,7 @@ let app = express();
 
 app.use((req, res, next)=> {
     if (!req.url.startsWith('/storage/'))
-        httpDebug(req.method + ' ' + req.url + ' STATUS ' + res.statusCode)
+        httpDebug(req.method + ' ' + req.url)
     next();
 })
 app.use(cors({origin: '*'}));

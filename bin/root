@@ -20,7 +20,13 @@ let io = new Server(server, {
   }
 });
 
-mongoose.connect(process.env.DB_CONNECTION_STRING, { useNewUrlParser: true, useUnifiedTopology: true }, function (err) { if (err) console.error(err) } )
+mongoose.connect(process.env.DB_CONNECTION_STRING, { useNewUrlParser: true, useUnifiedTopology: true }, function (err) {
+  if (err) {
+    databaseDebug(err)
+    process.exit(1)
+  }
+
+})
 
 const Message = require('../database/models/message');
 const Chat = require("../database/models/chat");
@@ -40,6 +46,8 @@ io.use((socket, next) => {
 
   if (signature === tokenParts[2])
     socket.userId = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf8'))
+  else
+    return next(new Error("401"));
 
   next();
 });
@@ -68,7 +76,7 @@ io.on('connection', function(socket) {
 
   socket.emit('users online', onlineUsersId);
 
-  socket.on('send message', function (messageId, chatId, content, repliedOn) {
+  socket.on('send message', async function (messageId, chatId, content, repliedOn) {
     let message = new Message()
     message._id = messageId
     message.chat = chatId
@@ -152,8 +160,12 @@ io.on('connection', function(socket) {
         })
 
         for (const onlineUser of onlineUsers) {
-          if (onlineUser.userId != message.sender._id.toString() || (onlineUser.userId == socket.userId && onlineUser.socket.id != socket.id)) {
+          if (onlineUser.userId != message.sender._id.toString()) {
             socketsDebug('MESSAGE EDITED BY', socket.userId)
+            onlineUser.socket.emit('message edited', message)
+          }
+          else if (onlineUser.userId == socket.userId && onlineUser.socket.id != socket.id) {
+            socketsDebug('MESSAGE EDITED BY ME ANOTHER SESSION', socket.userId)
             onlineUser.socket.emit('message edited', message)
           }
         }
@@ -166,15 +178,29 @@ io.on('connection', function(socket) {
       if (err)
         return databaseDebug(err)
 
-      Message.findOneAndDelete({ _id: messageId }, { returnOriginal: false }, function (err, doc) {
+      Message.findOneAndDelete({ _id: messageId }, { returnOriginal: false }, async function (err, doc) {
         if (err)
           return databaseDebug(err)
+        if (doc) {
+          doc = await Message.populate(doc, { path: "chat" })
 
-        for (const onlineUser of onlineUsers)
-          if (onlineUser.userId != doc.sender.toString() || (onlineUser.userId == socket.userId && onlineUser.socket.id != socket.id)) {
-            socketsDebug('MESSAGE DELETED BY', socket.userId)
-            onlineUser.socket.emit('message deleted', socket.userId, messageId)
-          }
+          let targetUserId
+
+          if (doc.chat.sender.toString() !== socket.userId.toString())
+            targetUserId = doc.chat.sender
+          else
+            targetUserId = doc.chat.receiver
+
+          for (const onlineUser of onlineUsers)
+            if (onlineUser.userId != doc.sender.toString()) {
+              socketsDebug('MESSAGE DELETED BY', socket.userId)
+              onlineUser.socket.emit('message deleted', socket.userId, messageId)
+            }
+            else if (onlineUser.userId == socket.userId && onlineUser.socket.id != socket.id) {
+              socketsDebug('MESSAGE DELETED BY ME ANOTHER SESSION', socket.userId)
+              onlineUser.socket.emit('message deleted', targetUserId, messageId)
+            }
+        }
       })
     })
   })
