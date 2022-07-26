@@ -37,7 +37,7 @@ exports.getUserChats = function (req, res) {
                             sender: targetUserId
                         });
 
-                        let loadedMessages = await Message.find({ chat: chats[i] }, '_id sentAt content sender haveSeen edits')
+                        let loadedMessages = await Message.find({ chat: chats[i] }, '_id sentAt editedAt content sender haveSeen edits')
                             .sort({'sentAt': -1})
                             .limit(1)
                             .populate('sender')
@@ -117,13 +117,13 @@ exports.loadMessages = function (req, res) {
     if (!req.userId)
         return res.status(401).json({ message: "Not authorized" })
 
-    Message.find({chat: req.params.chatId}, '_id content repliedOn sender sentAt edits haveSeen')
+    Message.find({chat: req.params.chatId}, '_id content repliedOn sender sentAt editedAt edits haveSeen')
         .sort({'sentAt': -1})
         .limit(req.query.count)
         .skip(req.query.from)
         .populate({
             path : 'repliedOn',
-            select : '_id content sender sentAt haveSeen',
+            select : '_id content sender sentAt editedAt haveSeen',
             populate : {
                 path : 'sender',
             }

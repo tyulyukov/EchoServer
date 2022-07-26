@@ -32,6 +32,15 @@ const Message = require('../database/models/message');
 const Chat = require("../database/models/chat");
 const User = require("../database/models/user");
 
+/*Message.updateMany({ }, { edits: [] }, { returnOriginal: false }, async function (err, doc)
+{
+  let messages = await Message.find({} );
+
+  for (const message of messages) {
+    Message.findByIdAndUpdate(message._id, { editedAt: message.sentAt }, { returnOriginal: false }, function (err, doc) {});
+  }
+});*/
+
 io.use((socket, next) => {
   const authorization = socket.handshake.query.authorization.replace(' ', '+');
 
@@ -94,7 +103,7 @@ io.on('connection', function(socket) {
       if (repliedOn)
         message = await Message.populate(message, {
           path : 'repliedOn',
-          select : '_id content sender sentAt haveSeen',
+          select : '_id content sender sentAt editedAt haveSeen',
           populate : {
             path : 'sender',
           }
@@ -144,31 +153,37 @@ io.on('connection', function(socket) {
   })
 
   socket.on('edit message', function (messageId, content) {
-    Message.findOneAndUpdate({ _id: messageId }, { content: content }, { returnOriginal: false }, function (err, doc) {
+    Message.findOneAndUpdate({ _id: messageId }, { content: content }, { returnOriginal: true }, function (err, doc) {
       if (err)
         return databaseDebug(err)
 
-      let edit = { content: content, date: Date.now() }
-      Message.findOneAndUpdate({ _id: doc._id }, { $push: { edits: edit } }, async function (err, message) {
+      let edit = { content: doc.content, date: doc.editedAt }
+      Message.findOneAndUpdate({ _id: messageId }, { $push: { edits: edit } }, async function (err, msg) {
         if (err)
           return databaseDebug(err)
 
-        message = await Message.populate(message, { path: "sender" })
-        message = await Message.populate(message, {
-          path: "chat",
-          populate: { path: "sender receiver" }
-        })
+        Message.findOneAndUpdate({ _id: messageId }, { editedAt: Date.now() }, { returnOriginal: false }, async function (err, message) {
+          if (err)
+            return databaseDebug(err)
 
-        for (const onlineUser of onlineUsers) {
-          if (onlineUser.userId != message.sender._id.toString()) {
-            socketsDebug('MESSAGE EDITED BY', socket.userId)
-            onlineUser.socket.emit('message edited', message)
+          databaseDebug(message)
+
+          message = await Message.populate(message, { path: "sender" })
+          message = await Message.populate(message, {
+            path: "chat",
+            populate: {path: "sender receiver"}
+          })
+
+          for (const onlineUser of onlineUsers) {
+            if (onlineUser.userId != message.sender._id.toString()) {
+              socketsDebug('MESSAGE EDITED BY', socket.userId)
+              onlineUser.socket.emit('message edited', message)
+            } else if (onlineUser.userId == socket.userId && onlineUser.socket.id != socket.id) {
+              socketsDebug('MESSAGE EDITED BY ME ANOTHER SESSION', socket.userId)
+              onlineUser.socket.emit('message edited', message)
+            }
           }
-          else if (onlineUser.userId == socket.userId && onlineUser.socket.id != socket.id) {
-            socketsDebug('MESSAGE EDITED BY ME ANOTHER SESSION', socket.userId)
-            onlineUser.socket.emit('message edited', message)
-          }
-        }
+        });
       });
     })
   })
