@@ -166,8 +166,6 @@ io.on('connection', function(socket) {
           if (err)
             return databaseDebug(err)
 
-          databaseDebug(message)
-
           message = await Message.populate(message, { path: "sender" })
           message = await Message.populate(message, {
             path: "chat",

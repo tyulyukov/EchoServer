@@ -1,7 +1,10 @@
 let crypto = require('crypto')
+let databaseDebug = require('debug')('echo:database')
 const tokenKey = process.env.TOKEN_KEY
 
 const User = require('../database/models/user')
+
+const validator = require('../helpers/validation')
 
 exports.middlewareAuth = function (req, res, next) {
     if (req.headers.authorization) {
@@ -19,12 +22,23 @@ exports.middlewareAuth = function (req, res, next) {
 }
 
 exports.login = async function (req, res) {
+    if (!req.body.username || !req.body.password)
+        return res.status(400).json({ message: 'Fields must be not empty' })
+
     const username = req.body.username.toLowerCase()
-    const passwordHash = crypto.createHash('sha256').update(req.body.password).digest('hex');
+    const password = req.body.password
+
+    if (validator.isNullOrWhiteSpace(username) || validator.isNullOrWhiteSpace(password))
+        return res.status(400).json({ message: 'Fields must be not empty' })
+
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
 
     User.findOne( {username: username, passwordHash: passwordHash}, function (err, user) {
-        if (err)
+        if (err) {
+            databaseDebug(err)
             return res.status(500).json({ message: 'Internal Error' })
+        }
+
 
         if (!user)
             return res.status(400).json({ message: 'User Not Found' })
@@ -48,16 +62,26 @@ exports.login = async function (req, res) {
 }
 
 exports.register = async function (req, res) {
+    if (!req.body.username || !req.body.password)
+        return res.status(400).json({ message: 'Fields must be not empty' })
+
     const username = req.body.username.toLowerCase()
     const password = req.body.password
 
-    if (IsNullOrWhiteSpace(password) || IsNullOrWhiteSpace(username)) {
-        return res.status(400).json({message: 'Fields must be not empty'})
-    }
+    if (validator.isNullOrWhiteSpace(password) || validator.isNullOrWhiteSpace(username))
+        return res.status(400).json({ message: 'Fields must be not empty' })
+
+    if (!validator.validatePassword(password))
+        return res.status(403).json({ message: 'Password is invalid' })
+
+    if (!validator.validateUsername(username))
+        return res.status(406).json({ message: 'Username is invalid' })
 
     User.findOne( {username: username}, function (err, user) {
-        if (err)
-            return res.status(500).json({message: 'Internal Error'})
+        if (err) {
+            databaseDebug(err)
+            return res.status(500).json({ message: 'Internal Error' })
+        }
 
         if (user)
             return res.status(405).json({ message: 'This username is already busy' });
@@ -69,8 +93,10 @@ exports.register = async function (req, res) {
         newUser.passwordHash = passwordHash
 
         newUser.save(function (err) {
-            if (err)
+            if (err) {
+                databaseDebug(err)
                 return res.status(500).json({ message: 'Internal Error' })
+            }
 
             return res.status(201).json({
                 _id: newUser._id,
@@ -89,8 +115,10 @@ exports.confirmJwt = function (req, res) {
         return res.status(401).json({ message: "Not authorized" })
 
     User.findOne( {_id: req.userId}, function (err, user) {
-        if (err)
-            return res.status(500).json({ message: "Internal Error" })
+        if (err) {
+            databaseDebug(err)
+            return res.status(500).json({ message: 'Internal Error' })
+        }
 
         if (user)
             return res.status(200).json({
@@ -104,8 +132,4 @@ exports.confirmJwt = function (req, res) {
 
         return res.status(401).json({ message: "User not registered" })
     })
-}
-
-function IsNullOrWhiteSpace(str) {
-    return str == null || str.trim() === ''
 }
