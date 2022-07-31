@@ -8,7 +8,9 @@ const validator = require('../helpers/validation')
 
 exports.middlewareAuth = function (req, res, next) {
     if (req.headers.authorization) {
-        let tokenParts = req.headers.authorization.split('.')
+        let token = decodeURI(req.headers.authorization)
+
+        let tokenParts = token.split('.')
         let signature = crypto
             .createHmac('SHA256', tokenKey)
             .update(`${tokenParts[0]}.${tokenParts[1]}`)
@@ -56,7 +58,7 @@ exports.login = async function (req, res) {
                 createdAt: user.createdAt,
                 description: user.description,
             },
-            token: `${head}.${body}.${signature}`,
+            token: encodeURI(`${head}.${body}.${signature}`),
         })
     })
 }
