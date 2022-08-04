@@ -66,6 +66,8 @@ exports.getOnlineUsers = function () {
   return onlineUsers;
 }
 io.on('connection', function(socket) {
+  // TODO if userId == null - disconnect socket
+
   socketsDebug('CONNECT', socket.userId, 'SOCKET', socket.id)
 
   onlineUsers = [];
@@ -86,11 +88,17 @@ io.on('connection', function(socket) {
   socket.emit('users online', onlineUsersId);
 
   socket.on('send message', async function (messageId, chatId, content, repliedOn) {
+    let chat = await Chat.findById(chatId)
+    if (chat.sender.toString() !== socket.userId && chat.receiver.toString() !== socket.userId) {
+      socketsDebug('SEND MESSAGE FAILED', socket.userId)
+      return socket.emit('send message failed', messageId)
+    }
+
     let message = new Message()
     message._id = messageId
-    message.chat = chatId
+    message.chat = chat._id
     message.sender = socket.userId
-    message.content = content
+    message.content = content.trim()
     if (repliedOn)
       message.repliedOn = repliedOn
 
@@ -134,6 +142,7 @@ io.on('connection', function(socket) {
   })
 
   socket.on('user typing', function (targetUserId) {
+    // TODO replace targetUserId with chatId for future updates
     for (const onlineUser of onlineUsers)
       if (onlineUser.userId == targetUserId) {
         onlineUser.socket.emit('user typing', socket.userId)
@@ -141,6 +150,8 @@ io.on('connection', function(socket) {
   })
 
   socket.on('read message', function (messageId) {
+    // TODO find message -> check if its not a sender -> check if its a user that present in chat
+
     Message.findOneAndUpdate({ _id: messageId }, { haveSeen: true }, { returnOriginal: false }, function (err, doc) {
       if (err)
         return databaseDebug(err)
@@ -152,8 +163,13 @@ io.on('connection', function(socket) {
     })
   })
 
-  socket.on('edit message', function (messageId, content) {
-    Message.findOneAndUpdate({ _id: messageId }, { content: content }, { returnOriginal: true }, function (err, doc) {
+  socket.on('edit message', async function (messageId, content) {
+    let message = await Message.findById(messageId);
+
+    if (message.sender.toString() !== socket.userId.toString())
+      return socketsDebug('EDIT MESSAGE FAILED', socket.userId)
+
+    Message.findOneAndUpdate({ _id: messageId }, { content: content.trim() }, { returnOriginal: true }, function (err, doc) {
       if (err)
         return databaseDebug(err)
 
@@ -186,7 +202,12 @@ io.on('connection', function(socket) {
     })
   })
 
-  socket.on('delete message', function (messageId) {
+  socket.on('delete message', async function (messageId) {
+    let message = await Message.findById(messageId);
+
+    if (message.sender.toString() !== socket.userId.toString())
+      return socketsDebug('DELETE MESSAGE FAILED', socket.userId)
+
     Message.updateMany({ repliedOn: messageId }, { repliedOn: null }, function (err) {
       if (err)
         return databaseDebug(err)
@@ -194,6 +215,7 @@ io.on('connection', function(socket) {
       Message.findOneAndDelete({ _id: messageId }, { returnOriginal: false }, async function (err, doc) {
         if (err)
           return databaseDebug(err)
+
         if (doc) {
           doc = await Message.populate(doc, { path: "chat" })
 
