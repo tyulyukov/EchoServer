@@ -1,6 +1,7 @@
 let app = require('../app');
 let http = require('http');
 let mongoose = require("mongoose");
+let fs = require("fs");
 let serverDebug = require('debug')('echo:server')
 let socketsDebug = require('debug')('echo:sockets')
 let databaseDebug = require('debug')('echo:database')
@@ -35,6 +36,15 @@ const User = require("../database/models/user");
 /*
 User.updateMany({ }, { avatarUrl: 'https://tyulyukov.blob.core.windows.net/avatars/default-avatar.png', originalAvatarUrl: 'https://tyulyukov.blob.core.windows.net/avatars/default-avatar.png' }).exec()
 */
+
+new Promise((resolve, reject) => {
+  fs.access('./node_modules/webp-converter/temp', (error) => {
+    if (error) {
+      fs.mkdirSync('./node_modules/webp-converter/temp')
+      resolve()
+    }
+  })
+})
 
 io.use((socket, next) => {
   const authorization = socket.handshake.query.authorization.replace(' ', '+');
