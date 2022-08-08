@@ -1,6 +1,21 @@
 const webp = require("webp-converter")
 const path = require("path");
 const fs = require('fs');
+const getStream = require('into-stream')
+const { BlockBlobClient } = require("@azure/storage-blob");
+
+const getBlobName = () => {
+    const identifier = Math.random().toString().replace(/0\./, '') + '-' + Date.now().toString(); // remove "0." from start of string
+    return `${identifier}.webp`;
+};
+
+const getFileExtension = originalName => {
+    return originalName.substring(originalName.lastIndexOf('.') + 1, originalName.length)
+}
+
+const validateImageType = mimeType => {
+    return mimeType == "image/png" || mimeType == "image/jpg" || mimeType == "image/jpeg" || mimeType == "application/octet-stream"
+}
 
 exports.uploadImage = function (request, response) {
     if (!request.user)
@@ -9,29 +24,28 @@ exports.uploadImage = function (request, response) {
     const file = request.file;
 
     if (file) {
-        let originalPath = path.join(__dirname, '../', file.path)
-
-        if (file.mimetype !== "image/png" && file.mimetype !== "image/jpg" && file.mimetype !== "image/jpeg" && file.mimetype !== "application/octet-stream") {
-            fs.unlink(originalPath, err => { if (err) console.error(err) })
-            return response.status(422).json({message: "Uploaded file have unsupported type"})
+        if (!validateImageType(file.mimetype)) {
+            return response.status(422).json({ message: "Uploaded file have unsupported type" })
         }
 
-        let id = Date.now()
+        const fileExtension = getFileExtension(file.originalname)
 
-        let relativeCompressedPath = 'storage/uploads/compressed/' + id + '_upload.webp'
-        let absoluteCompressedPath = path.join(__dirname, '../public/', relativeCompressedPath)
-        let relativePath = 'storage/uploads/original/' + id + '_upload_' + file.filename
-        let absolutePath = path.join(__dirname, '../public/', relativePath)
+        webp.buffer2webpbuffer(request.file.buffer, fileExtension,"-q 90")
+            .then(webpBuffer => {
+                const blobName = getBlobName()
+                const blobService = new BlockBlobClient(process.env.AZURE_STORAGE_CONNECTION_STRING, 'uploads', blobName)
+                const webpStream = getStream(webpBuffer)
+                const webpStreamLength = webpStream.length
 
-        fs.rename(originalPath, absolutePath, function (err) {
-            if (err)
-                return response.status(500).json({message: "File moving error"})
-
-            const result = webp.cwebp(absolutePath, absoluteCompressedPath,"-q 90","-v");
-            result.then((res) => {
-                return response.status(200).json({ originalImageUrl: relativePath, imageUrl: relativeCompressedPath })
+                blobService.uploadStream(webpStream, webpStreamLength)
+                    .then(res => {
+                        return response.status(200).json({ imageUrl: blobService.url, originalImageUrl: blobService.url })
+                    })
+                    .catch(err => {
+                        console.error(err)
+                        return response.status(500).json({ message: "Error corrupted while uploading file to storage" })
+                    })
             });
-        })
     }
     else {
         response.status(422).json({message: "Uploaded file is null or undefined"})
@@ -45,31 +59,30 @@ exports.uploadAvatar = function (request, response) {
     const file = request.file;
 
     if (file) {
-        let originalPath = path.join(__dirname, '../', file.path)
-
-        if (file.mimetype !== "image/png" && file.mimetype !== "image/jpg" && file.mimetype !== "image/jpeg" && file.mimetype !== "application/octet-stream") {
-            fs.unlink(originalPath, err => { if (err) console.error(err) })
-            return response.status(422).json({message: "Uploaded file have unsupported type"})
+        if (!validateImageType(file.mimetype)) {
+            return response.status(422).json({ message: "Uploaded file have unsupported type" })
         }
 
-        let id = Date.now()
+        const fileExtension = getFileExtension(file.originalname)
 
-        let relativeCompressedPath = 'storage/avatars/compressed/' + id + '_avatar.webp'
-        let absoluteCompressedPath = path.join(__dirname, '../public/', relativeCompressedPath)
-        let relativePath = 'storage/avatars/original/' + id + '_avatar_' + file.filename
-        let absolutePath = path.join(__dirname, '../public/', relativePath)
+        webp.buffer2webpbuffer(request.file.buffer, fileExtension,"-q 90")
+            .then(webpBuffer => {
+                const blobName = getBlobName()
+                const blobService = new BlockBlobClient(process.env.AZURE_STORAGE_CONNECTION_STRING, 'avatars', blobName)
+                const webpStream = getStream(webpBuffer)
+                const webpStreamLength = webpStream.length
 
-        fs.rename(originalPath, absolutePath, function (err) {
-            if (err)
-                return response.status(500).json({message: "File moving error"})
-
-            const result = webp.cwebp(absolutePath, absoluteCompressedPath,"-q 80","-v");
-            result.then((res) => {
-                return response.status(200).json({ originalAvatarUrl: relativePath, avatarUrl: relativeCompressedPath })
+                blobService.uploadStream(webpStream, webpStreamLength)
+                    .then(res => {
+                        return response.status(200).json({ avatarUrl: blobService.url, originalAvatarUrl: blobService.url })
+                    })
+                    .catch(err => {
+                        console.error(err)
+                        return response.status(500).json({ message: "Error corrupted while uploading file to storage" })
+                    })
             });
-        })
     }
     else {
-        response.status(422).json({message: "Uploaded file is null or undefined"})
+        response.status(422).json({ message: "Uploaded file is null or undefined" })
     }
 }

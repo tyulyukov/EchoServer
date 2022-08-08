@@ -32,14 +32,9 @@ const Message = require('../database/models/message');
 const Chat = require("../database/models/chat");
 const User = require("../database/models/user");
 
-/*Message.updateMany({ }, { edits: [] }, { returnOriginal: false }, async function (err, doc)
-{
-  let messages = await Message.find({} );
-
-  for (const message of messages) {
-    Message.findByIdAndUpdate(message._id, { editedAt: message.sentAt }, { returnOriginal: false }, function (err, doc) {});
-  }
-});*/
+/*
+User.updateMany({ }, { avatarUrl: 'https://tyulyukov.blob.core.windows.net/avatars/default-avatar.png', originalAvatarUrl: 'https://tyulyukov.blob.core.windows.net/avatars/default-avatar.png' }).exec()
+*/
 
 io.use((socket, next) => {
   const authorization = socket.handshake.query.authorization.replace(' ', '+');

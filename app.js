@@ -25,15 +25,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-const storageConfig = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, "public/tmp");
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname);
-    }
-});
-app.use(multer({storage:storageConfig}).single("file"));
+const storageConfig = multer.memoryStorage()
+app.use(multer({ storage:storageConfig }).single("file"));
 
 let authController = require('./controllers/auth')
 app.use(authController.middlewareAuth)
