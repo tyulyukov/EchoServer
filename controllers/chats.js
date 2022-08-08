@@ -61,6 +61,10 @@ exports.createChat = function (req, res) {
     if (!req.userId)
         return res.status(401).json({ message: "Not authorized" })
 
+    if (!req.body.receiverId) {
+        return res.status(400).json({ message: "Receiver id is not passed" })
+    }
+
     let userId = req.userId;
     let receiverId = req.body.receiverId
 
