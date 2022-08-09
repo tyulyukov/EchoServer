@@ -27,7 +27,7 @@ exports.uploadImage = function (request, response) {
             return response.status(422).json({ message: "Uploaded file have unsupported type" })
         }
 
-        const blobName = getBlobName()
+        const blobName = getBlobName(request.file.originalname)
         const blobService = new BlockBlobClient(process.env.AZURE_STORAGE_CONNECTION_STRING, 'uploads', blobName)
         const stream = getStream(request.file.buffer)
         const streamLength = stream.length
@@ -57,7 +57,7 @@ exports.uploadAvatar = function (request, response) {
             return response.status(422).json({ message: "Uploaded file have unsupported type" })
         }
 
-        const blobName = getBlobName()
+        const blobName = getBlobName(request.file.originalname)
         const blobService = new BlockBlobClient(process.env.AZURE_STORAGE_CONNECTION_STRING, 'avatars', blobName)
         const stream = getStream(request.file.buffer)
         const streamLength = stream.length
