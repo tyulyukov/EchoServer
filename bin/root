@@ -37,15 +37,6 @@ const User = require("../database/models/user");
 User.updateMany({ }, { avatarUrl: 'https://tyulyukov.blob.core.windows.net/avatars/default-avatar.png', originalAvatarUrl: 'https://tyulyukov.blob.core.windows.net/avatars/default-avatar.png' }).exec()
 */
 
-new Promise((resolve, reject) => {
-  fs.access('./node_modules/webp-converter/temp', (error) => {
-    if (error) {
-      fs.mkdirSync('./node_modules/webp-converter/temp')
-      resolve()
-    }
-  })
-})
-
 io.use((socket, next) => {
   const authorization = socket.handshake.query.authorization.replace(' ', '+');
 
