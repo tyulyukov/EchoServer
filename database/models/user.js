@@ -7,11 +7,11 @@ const user = new Schema({
     description: String,
     avatarUrl: {
         type: String,
-        default: 'storage/avatars/default-avatar.webp',
+        default: 'https://tyulyukov.blob.core.windows.net/avatars/default-avatar.png',
     },
     originalAvatarUrl: {
         type: String,
-        default: 'storage/avatars/default-avatar.webp',
+        default: 'https://tyulyukov.blob.core.windows.net/avatars/default-avatar.png',
     },
     createdAt: {
         type: Date,

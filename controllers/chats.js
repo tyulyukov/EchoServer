@@ -121,10 +121,13 @@ exports.loadMessages = function (req, res) {
     if (!req.userId)
         return res.status(401).json({ message: "Not authorized" })
 
+    const count = req.query.count || 15
+    const from = req.query.from || 0
+
     Message.find({chat: req.params.chatId}, '_id content repliedOn sender sentAt editedAt edits haveSeen')
         .sort({'sentAt': -1})
-        .limit(req.query.count)
-        .skip(req.query.from)
+        .limit(count)
+        .skip(from)
         .populate({
             path : 'repliedOn',
             select : '_id content sender sentAt editedAt haveSeen',
