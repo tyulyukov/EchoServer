@@ -38,7 +38,7 @@ User.updateMany({ }, { avatarUrl: 'https://tyulyukov.blob.core.windows.net/avata
 */
 
 io.use((socket, next) => {
-  const authorization = socket.handshake.query.authorization.replace(' ', '+');
+  const authorization = decodeURI(socket.handshake.query.authorization).replaceAll(' ', '+')
 
   if (!authorization)
     return next(new Error("401"));
@@ -199,6 +199,8 @@ io.on('connection', function(socket) {
   })
 
   socket.on('delete message', async function (messageId) {
+    // TODO return full message
+
     let message = await Message.findById(messageId);
 
     if (message.sender.toString() !== socket.userId.toString())
