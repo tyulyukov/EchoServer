@@ -41,6 +41,13 @@ exports.getUserChats = function (req, res) {
                             .sort({'sentAt': -1})
                             .limit(1)
                             .populate('sender')
+                            .populate({
+                                path : 'repliedOn',
+                                select : '_id content sender sentAt editedAt haveSeen',
+                                populate : {
+                                    path : 'sender',
+                                }
+                            })
 
                         chats[i] = {
                             _id: chats[i]._id,
