@@ -2,69 +2,72 @@ const Chat = require('../database/models/chat')
 const Message = require('../database/models/message')
 const root = require('../bin/root')
 
-exports.getUserChats = function (req, res) {
+exports.getUserChats = async function (req, res) {
     if (!req.userId)
         return res.status(401).json({ message: "Not authorized" })
 
     const userId = req.userId
 
-    Chat.find({ sender: userId }, 'sender receiver createdAt')
+    let senderChats = await Chat.find({sender: userId}, 'sender receiver createdAt')
         .populate('sender')
         .populate('receiver')
-        .exec(function (err, senderChats) {
-            if (err)
-                return res.status(500).json({ message: "Internal Error" })
+        .exec()
 
-            Chat.find({ receiver: userId }, 'sender receiver createdAt')
-                .populate('sender')
-                .populate('receiver')
-                .exec(async function (err, receiverChats) {
-                    if (err)
-                        return res.status(500).json({message: "Internal Error"})
+    if (!senderChats)
+        return res.status(500).json({message: "Internal Error"})
 
-                    let chats = senderChats.concat(receiverChats);
+    let receiverChats = await Chat.find({ receiver: userId }, 'sender receiver createdAt')
+        .populate('sender')
+        .populate('receiver')
+        .exec()
 
-                    for (let i = 0; i < chats.length; i++) {
-                        let targetUserId
-                        if (chats[i].sender._id.toString() !== userId.toString())
-                            targetUserId = chats[i].sender._id
-                        else
-                            targetUserId = chats[i].receiver._id
+    if (!receiverChats)
+        return res.status(500).json({message: "Internal Error"})
 
-                        let unreadMessagesCount = await Message.countDocuments({
-                            chat: chats[i]._id,
-                            haveSeen: false,
-                            sender: targetUserId
-                        });
+    let chats = senderChats.concat(receiverChats);
 
-                        let loadedMessages = await Message.find({ chat: chats[i] }, '_id sentAt editedAt content sender haveSeen edits')
-                            .sort({'sentAt': -1})
-                            .limit(1)
-                            .populate('sender')
-                            .populate({
-                                path : 'repliedOn',
-                                select : '_id content sender sentAt editedAt haveSeen',
-                                populate : {
-                                    path : 'sender',
-                                }
-                            })
+    if (!chats)
+        return res.status(500).json({message: "Internal Error"})
 
-                        chats[i] = {
-                            _id: chats[i]._id,
-                            createdAt: chats[i].createdAt,
-                            sender: chats[i].sender,
-                            receiver: chats[i].receiver,
-                            unreadMessagesCount: unreadMessagesCount,
-                            messages: loadedMessages
-                        }
-                    }
+    for (let i = 0; i < chats.length; i++) {
+        let targetUserId
+        if (chats[i].sender._id.toString() !== userId.toString())
+            targetUserId = chats[i].sender._id
+        else
+            targetUserId = chats[i].receiver._id
 
-                    return res.status(200).json(chats)
-                })
-        })
+        let unreadMessagesCount = await Message.countDocuments({
+            chat: chats[i]._id,
+            haveSeen: false,
+            sender: targetUserId
+        });
+
+        let loadedMessages = await Message.find({ chat: chats[i] }, '_id sentAt editedAt content sender haveSeen edits')
+            .sort({'sentAt': -1})
+            .limit(1)
+            .populate('sender')
+            .populate({
+                path : 'repliedOn',
+                select : '_id content sender sentAt editedAt haveSeen',
+                populate : {
+                    path : 'sender',
+                }
+            })
+
+        chats[i] = {
+            _id: chats[i]._id,
+            createdAt: chats[i].createdAt,
+            sender: chats[i].sender,
+            receiver: chats[i].receiver,
+            unreadMessagesCount: unreadMessagesCount,
+            messages: loadedMessages
+        }
+    }
+
+    return res.status(200).json(chats)
 }
 
-exports.createChat = function (req, res) {
+exports.createChat = async function (req, res) {
     if (!req.userId)
         return res.status(401).json({ message: "Not authorized" })
 
@@ -75,64 +78,70 @@ exports.createChat = function (req, res) {
     let userId = req.userId;
     let receiverId = req.body.receiverId
 
-    Chat.findOne({ sender: userId, receiver: receiverId }, 'sender receiver createdAt')
+    let chat = await Chat.findOne({ sender: userId, receiver: receiverId }, 'sender receiver createdAt')
         .populate('sender')
         .populate('receiver')
-        .exec(function (err, chat) {
-            if (err)
-                return res.status(500).json({ message: "Internal Error" })
+        .exec()
 
-            if (chat)
-                return res.status(201).json(chat)
+    if (chat)
+        return res.status(201).json(chat)
 
-            Chat.findOne({ sender: receiverId, receiver: userId }, 'sender receiver createdAt')
-                .populate('sender')
-                .populate('receiver')
-                .exec(function (err, anotherChat) {
-                    if (err)
-                        return res.status(500).json({ message: "Internal Error" })
+    let anotherChat = await Chat.findOne({ sender: receiverId, receiver: userId }, 'sender receiver createdAt')
+        .populate('sender')
+        .populate('receiver')
+        .exec()
 
-                    if (anotherChat)
-                        return res.status(201).json(anotherChat)
+    if (anotherChat)
+        return res.status(201).json(anotherChat)
 
-                    const newChat = new Chat()
-                    newChat.sender = userId
-                    newChat.receiver = receiverId
-                    newChat.messages = []
+    let newChat = new Chat()
+    newChat.sender = userId
+    newChat.receiver = receiverId
+    newChat.messages = []
 
-                    newChat.save(function (err) {
-                        if (err)
-                            return res.status(500).json({ message: "Internal Error" })
+    newChat.save(async function (err) {
+        if (err)
+            return res.status(500).json({ message: "Internal Error" })
 
-                        Chat.populate(newChat, { path: "sender" }, function(err, senderPopulatedChat) {
-                            if (err)
-                                return res.status(500).json({ message: "Internal Error" })
+        newChat = await Chat.populate(newChat, { path: "sender" })
 
-                            Chat.populate(senderPopulatedChat, { path: "receiver" }, function(err, receiverPopulatedChat) {
-                                if (err)
-                                    return res.status(500).json({ message: "Internal Error" })
+        if (!newChat)
+            return res.status(500).json({ message: "Internal Error" })
 
-                                for (const onlineUser of root.getOnlineUsers())
-                                    if (onlineUser.userId == receiverId)
-                                        onlineUser.socket.emit('chat created', receiverPopulatedChat)
+        newChat = await Chat.populate(newChat, { path: "receiver" });
 
-                                return res.status(201).json(receiverPopulatedChat);
-                            });
-                        });
-                    })
-                })
-        })
+        if (!newChat)
+            return res.status(500).json({ message: "Internal Error" })
+
+        for (const onlineUser of root.getOnlineUsers())
+            if (onlineUser.userId == receiverId)
+                onlineUser.socket.emit('chat created', newChat)
+
+        return res.status(201).json(newChat);
+    });
 }
 
-exports.loadMessages = function (req, res) {
+exports.loadMessages = async function (req, res) {
     if (!req.userId)
         return res.status(401).json({ message: "Not authorized" })
 
+    if (!req.params.chatId || !req.query.count || !req.query.from)
+        return res.status(400).json({ message: "Fields must be not empty" })
+
+    const chatId = req.params.chatId
     const count = req.query.count || 15
     const from = req.query.from || 0
 
-    Message.find({chat: req.params.chatId}, '_id content repliedOn sender sentAt editedAt edits haveSeen')
-        .sort({'sentAt': -1})
+    let chat = await Chat.findById(chatId).exec()
+
+    if (!chat)
+        return res.status(404).json({ message: "Chat not found" })
+
+    if (chat.sender.toString() !== req.userId && chat.receiver.toString() !== req.userId)
+        return res.status(403).json({ message: "User is not in this chat" })
+
+    Message.find({ chat: chatId }, '_id content repliedOn sender sentAt editedAt edits haveSeen')
+        .sort({ 'sentAt': -1 })
         .limit(count)
         .skip(from)
         .populate({

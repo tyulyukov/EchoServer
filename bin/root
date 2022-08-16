@@ -1,7 +1,6 @@
 let app = require('../app');
 let http = require('http');
 let mongoose = require("mongoose");
-let fs = require("fs");
 let serverDebug = require('debug')('echo:server')
 let socketsDebug = require('debug')('echo:sockets')
 let databaseDebug = require('debug')('echo:database')
@@ -84,9 +83,9 @@ io.on('connection', function(socket) {
   socket.emit('users online', onlineUsersId);
 
   socket.on('send message', async function (messageId, chatId, content, repliedOn) {
-    let chat = await Chat.findById(chatId)
+    let chat = await Chat.findById(chatId).exec()
     if (chat.sender.toString() !== socket.userId && chat.receiver.toString() !== socket.userId) {
-      socketsDebug('SEND MESSAGE FAILED', socket.userId)
+      socketsDebug('SEND MESSAGE ERROR: user can not send message to this chat', socket.userId)
       return socket.emit('send message failed', messageId)
     }
 
@@ -145,8 +144,18 @@ io.on('connection', function(socket) {
       }
   })
 
-  socket.on('read message', function (messageId) {
-    // TODO find message -> check if its not a sender -> check if its a user that present in chat
+  socket.on('read message', async function (messageId) {
+    let message = await Message.findById(messageId).exec()
+    message = await Message.populate(message, { path: "chat" })
+
+    if (!message)
+      return databaseDebug('MESSAGE READ ERROR: message not found', socket.userId)
+
+    if (message.sender.toString() === socket.userId)
+      return databaseDebug('MESSAGE READ ERROR: user can not read own message', socket.userId)
+
+    if (message.chat.sender.toString() !== socket.userId && message.chat.receiver.toString() !== socket.userId)
+      return databaseDebug('MESSAGE READ ERROR: user is not present in chat where message had been sent', socket.userId)
 
     Message.findOneAndUpdate({ _id: messageId }, { haveSeen: true }, { returnOriginal: false }, function (err, doc) {
       if (err)
@@ -163,7 +172,7 @@ io.on('connection', function(socket) {
     let message = await Message.findById(messageId);
 
     if (message.sender.toString() !== socket.userId.toString())
-      return socketsDebug('EDIT MESSAGE FAILED', socket.userId)
+      return socketsDebug('EDIT MESSAGE ERROR: user can not edit other users` message', socket.userId)
 
     Message.findOneAndUpdate({ _id: messageId }, { content: content.trim() }, { returnOriginal: true }, function (err, doc) {
       if (err)
@@ -204,7 +213,7 @@ io.on('connection', function(socket) {
     let message = await Message.findById(messageId);
 
     if (message.sender.toString() !== socket.userId.toString())
-      return socketsDebug('DELETE MESSAGE FAILED', socket.userId)
+      return socketsDebug('DELETE MESSAGE ERROR: user can not delete other users` message', socket.userId)
 
     Message.updateMany({ repliedOn: messageId }, { repliedOn: null }, function (err) {
       if (err)

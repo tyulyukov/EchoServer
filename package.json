@@ -1,6 +1,6 @@
 {
   "name": "echoserver",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
     "start": "@powershell -Command $env:DEBUG='echo:*,'; node bin/root"
