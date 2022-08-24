@@ -179,27 +179,27 @@ io.on('connection', function(socket) {
         return databaseDebug(err)
 
       let edit = { content: doc.content, date: doc.editedAt }
-      Message.findOneAndUpdate({ _id: messageId }, { $push: { edits: edit } }, async function (err, msg) {
+      Message.findOneAndUpdate({ _id: messageId }, { $push: { edits: edit } }, async function (err, doc2) {
         if (err)
           return databaseDebug(err)
 
-        Message.findOneAndUpdate({ _id: messageId }, { editedAt: Date.now() }, { returnOriginal: false }, async function (err, message) {
+        Message.findOneAndUpdate({ _id: messageId }, { editedAt: Date.now() }, { returnOriginal: false }, async function (err, doc3) {
           if (err)
             return databaseDebug(err)
 
-          message = await Message.populate(message, { path: "sender" })
-          message = await Message.populate(message, {
+          doc3 = await Message.populate(doc3, { path: "sender" })
+          doc3 = await Message.populate(doc3, {
             path: "chat",
             populate: {path: "sender receiver"}
           })
 
           for (const onlineUser of onlineUsers) {
-            if (onlineUser.userId != message.sender._id.toString()) {
+            if (onlineUser.userId != doc3.sender._id.toString()) {
               socketsDebug('MESSAGE EDITED BY', socket.userId)
-              onlineUser.socket.emit('message edited', message)
+              onlineUser.socket.emit('message edited', doc3)
             } else if (onlineUser.userId == socket.userId && onlineUser.socket.id != socket.id) {
               socketsDebug('MESSAGE EDITED BY ME ANOTHER SESSION', socket.userId)
-              onlineUser.socket.emit('message edited', message)
+              onlineUser.socket.emit('message edited', doc3)
             }
           }
         });

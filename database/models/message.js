@@ -28,7 +28,8 @@ const message = new Schema({
         default: Date.now,
     },
     editedAt: {
-        type: Date
+        type: Date,
+        default: Date.now,
     },
     repliedOn: {
         type: String,
